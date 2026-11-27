@@ -1,0 +1,27 @@
+name = "aetherops"
+main = "src/index.js"
+compatibility_date = "2026-11-27"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aetherops"
+database_id = "REPLACE_WITH_ID_FROM_WRANGLER_D1_CREATE"
+migrations_dir = "migrations"
+
+[[send_email]]
+name = "EMAIL"
+
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[vars]
+TELEGRAM_DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+
+[observability]
+enabled = true

@@ -1,0 +1,6 @@
+# Copy to worker/.dev.vars for local-only development. Never commit worker/.dev.vars.
+AUTH_PEPPER=replace-with-a-long-random-secret
+VERIFIED_LOGIN_EMAILS=your-verified-cloudflare-address@example.com
+MAIL_FROM=AetherOps <login@your-onboarded-domain.example>
+TELEGRAM_BOT_TOKEN=replace-with-botfather-token
+TELEGRAM_WEBHOOK_SECRET=replace-with-a-random-webhook-secret
