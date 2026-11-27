@@ -3,6 +3,7 @@ import { isChannelMember, requiredChannel } from './channel.js'
 import { safeEqual, sha256 } from './crypto.js'
 import { error, json } from './http.js'
 import { consumeRateLimit } from './auth.js'
+import { telegramText as t } from './telegram-i18n.js'
 
 async function telegramCall(env, method, payload) {
   if (!env.TELEGRAM_BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is not configured')
@@ -25,44 +26,38 @@ async function sendText(env, chatId, text, replyMarkup) {
   })
 }
 
-function joinKeyboard() {
+function joinKeyboard(language) {
   return {
     inline_keyboard: [
-      [{ text: '📣 عضویت در کانال', url: requiredChannel.url }],
-      [{ text: '🔎 بررسی عضویت', callback_data: 'verify_channel' }],
+      [{ text: t(language, 'joinButton'), url: requiredChannel.url }],
+      [{ text: t(language, 'verifyButton'), callback_data: 'verify_channel' }],
     ],
   }
 }
 
-function appKeyboard(env) {
+function appKeyboard(env, language) {
   const url = env.AETHEROPS_WEB_URL || 'https://aetherops.codebox-lab.workers.dev'
   return {
     inline_keyboard: [
-      [{ text: '🚀 بازکردن Mini App', web_app: { url } }],
-      [{ text: '🌐 بازکردن نسخهٔ وب', url }],
+      [{ text: t(language, 'appButton'), web_app: { url } }],
+      [{ text: t(language, 'webButton'), url }],
     ],
   }
 }
 
-async function sendJoinPrompt(env, chatId) {
-  await sendText(env, chatId,
-    '🔒 برای استفاده از AetherOps، ابتدا عضو کانال PythonCodingAcademy شو. بعد «بررسی عضویت» را بزن تا لینک ورود و Mini App برایت باز شود.',
-    joinKeyboard())
+async function sendJoinPrompt(env, chatId, language) {
+  await sendText(env, chatId, t(language, 'joinPrompt'), joinKeyboard(language))
 }
 
-async function sendMembershipUnavailable(env, chatId) {
-  await sendText(env, chatId,
-    '⚠️ الان امکان بررسی عضویت نیست. لطفاً کمی بعد دوباره تلاش کن؛ اگر این خطا ادامه داشت، مدیر ربات باید دسترسی بررسی عضویت کانال را فعال کند.',
-    joinKeyboard())
+async function sendMembershipUnavailable(env, chatId, language) {
+  await sendText(env, chatId, t(language, 'unavailable'), joinKeyboard(language))
 }
 
-async function sendAppLink(env, chatId) {
-  await sendText(env, chatId,
-    '✅ عضویت تأیید شد. از دکمهٔ سبز، پنل AetherOps را همین‌جا در تلگرام باز کن؛ یا نسخهٔ وب را انتخاب کن.',
-    appKeyboard(env))
+async function sendAppLink(env, chatId, language) {
+  await sendText(env, chatId, t(language, 'verified'), appKeyboard(env, language))
 }
 
-async function consumeLinkCode(env, { codeValue, from, chatId }) {
+async function consumeLinkCode(env, { codeValue, from, chatId, language }) {
   const code = String(codeValue || '').toUpperCase()
   const codeHash = await sha256(code)
   const pending = await env.DB.prepare('SELECT user_id, expires_at FROM telegram_link_codes WHERE code_hash = ?').bind(codeHash).first()
@@ -89,36 +84,38 @@ async function consumeLinkCode(env, { codeValue, from, chatId }) {
     VALUES (?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET telegram_user_id=excluded.telegram_user_id, telegram_chat_id=excluded.telegram_chat_id, linked_at=excluded.linked_at`)
     .bind(consumed.user_id, String(from.id), String(chatId), now).run()
-  await sendText(env, chatId, '🟢 اتصال انجام شد. حالا از دکمهٔ زیر پنل AetherOps را باز کن.', appKeyboard(env))
+  await sendText(env, chatId, '🟢 اتصال انجام شد. حالا از دکمهٔ زیر پنل AetherOps را باز کن.', appKeyboard(env, language))
 }
 
 async function handleCallback(env, callback) {
   if (callback.data !== 'verify_channel') return
   const chatId = callback.message?.chat?.id
   if (!chatId || callback.message?.chat?.type !== 'private') return
+  const language = callback.from?.language_code
 
   try {
     const member = await isChannelMember(env, String(callback.from.id))
     if (!member) {
-      await telegramCall(env, 'answerCallbackQuery', { callback_query_id: callback.id, text: 'هنوز عضویت پیدا نشد؛ عضو شو و دوباره بررسی کن.' })
-      await sendJoinPrompt(env, chatId)
+      await telegramCall(env, 'answerCallbackQuery', { callback_query_id: callback.id, text: t(language, 'checkAgain') })
+      await sendJoinPrompt(env, chatId, language)
       return
     }
-    await telegramCall(env, 'answerCallbackQuery', { callback_query_id: callback.id, text: 'عضویت تأیید شد ✅' })
-    await sendAppLink(env, chatId)
+    await telegramCall(env, 'answerCallbackQuery', { callback_query_id: callback.id, text: t(language, 'checkDone') })
+    await sendAppLink(env, chatId, language)
   } catch {
-    await telegramCall(env, 'answerCallbackQuery', { callback_query_id: callback.id, text: 'بررسی موقتاً در دسترس نیست.' })
-    await sendMembershipUnavailable(env, chatId)
+    await telegramCall(env, 'answerCallbackQuery', { callback_query_id: callback.id, text: t(language, 'checkFailed') })
+    await sendMembershipUnavailable(env, chatId, language)
   }
 }
 
 async function handleMessage(env, message) {
   const chat = message?.chat
   const from = message?.from
+  const language = from?.language_code
   const text = typeof message?.text === 'string' ? message.text.trim() : ''
   if (!chat || !from || !text || chat.type !== 'private') return
   if (!(await consumeRateLimit(env, 'telegram_user_minute', String(from.id), 20, 60 * 1000))) {
-    await sendText(env, chat.id, '⏳ تعداد پیام‌ها زیاد است؛ یک دقیقهٔ دیگر دوباره تلاش کن.')
+    await sendText(env, chat.id, language === 'fa' ? '⏳ تعداد پیام‌ها زیاد است؛ یک دقیقهٔ دیگر دوباره تلاش کن.' : '⏳ Too many messages. Please try again in one minute.')
     return
   }
 
@@ -126,27 +123,27 @@ async function handleMessage(env, message) {
   try {
     member = await isChannelMember(env, String(from.id))
   } catch {
-    await sendMembershipUnavailable(env, chat.id)
+    await sendMembershipUnavailable(env, chat.id, language)
     return
   }
   if (!member) {
-    await sendJoinPrompt(env, chat.id)
+    await sendJoinPrompt(env, chat.id, language)
     return
   }
 
   const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+([A-Za-z0-9_-]{6,64}))?$/i)
   if (startMatch) {
     if (startMatch[1]) {
-      await consumeLinkCode(env, { codeValue: startMatch[1], from, chatId: chat.id })
+      await consumeLinkCode(env, { codeValue: startMatch[1], from, chatId: chat.id, language })
       return
     }
-    await sendAppLink(env, chat.id)
+    await sendAppLink(env, chat.id, language)
     return
   }
 
   const linkMatch = text.match(/^\/link(?:@\w+)?\s+([A-Za-z0-9_-]{6,64})$/i)
   if (linkMatch) {
-    await consumeLinkCode(env, { codeValue: linkMatch[1], from, chatId: chat.id })
+    await consumeLinkCode(env, { codeValue: linkMatch[1], from, chatId: chat.id, language })
     return
   }
 
@@ -159,14 +156,14 @@ async function handleMessage(env, message) {
   if (text === '/help') {
     await sendText(env, chat.id,
       'AetherOps روی Cloudflare Workers AI پاسخ می‌دهد. از Mini App پنل را باز کن؛ برای قطع اتصال /unlink را بفرست.',
-      appKeyboard(env))
+      appKeyboard(env, language))
     return
   }
 
   const linked = await env.DB.prepare('SELECT user_id FROM telegram_links WHERE telegram_user_id = ? AND telegram_chat_id = ?')
     .bind(String(from.id), String(chat.id)).first()
   if (!linked) {
-    await sendText(env, chat.id, 'برای ذخیرهٔ گفت‌وگو در حساب خودت، ابتدا Mini App را باز کن تا حساب تلگرامت به AetherOps وصل شود.', appKeyboard(env))
+    await sendText(env, chat.id, 'برای ذخیرهٔ گفت‌وگو در حساب خودت، ابتدا Mini App را باز کن تا حساب تلگرامت به AetherOps وصل شود.', appKeyboard(env, language))
     return
   }
 
