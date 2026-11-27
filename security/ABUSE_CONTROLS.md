@@ -1,13 +1,10 @@
 # Abuse controls
 
-## Login codes
+## Telegram sign-in
 
-- Use eight cryptographically random digits, including leading zeroes.
-- Keep a challenge for ten minutes and allow no more than five guesses.
-- Permit a new code once per minute per email.
-- Limit OTP requests to ten per IP per hour.
-- Restrict free-plan delivery to addresses verified in the Cloudflare account.
-- Keep response text generic enough to avoid disclosing account state.
+- Validate Telegram Mini App HMAC and reject auth data older than five minutes.
+- Treat `initDataUnsafe` as untrusted; only the server-verified `initData` may establish a session.
+- Recheck channel membership in the Worker before granting AI access.
 
 ## AI usage
 
@@ -20,9 +17,9 @@
 ## Telegram
 
 - Configure a webhook secret token and compare it on every request.
-- Accept `/link` only in private chats; link codes expire after ten minutes and are single-use.
+- Accept `/link` only in private chats; legacy-account link codes expire after ten minutes and are single-use.
 - Deduplicate Telegram update IDs and keep bot/API credentials only in Worker Secrets.
-- Never log full update bodies, email addresses, codes, or message content.
+- Never log full update bodies, Telegram credentials, link codes, or message content.
 
 ## API keys
 

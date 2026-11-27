@@ -1,4 +1,5 @@
-import { authenticate, currentUser, logout, requestCode, verifyCode } from './auth.js'
+import { authenticate, currentUser, logout } from './auth.js'
+import { telegramAuth } from './telegram-auth.js'
 import { chat, getUsage } from './ai.js'
 import { accountRoutes } from './account.js'
 import { error, json, responseSecurityHeaders } from './http.js'
@@ -7,8 +8,7 @@ import { telegramWebhook } from './telegram.js'
 async function route(request, env) {
   const { pathname } = new URL(request.url)
   if (pathname === '/api/health' && request.method === 'GET') return json({ ok: true, service: 'aetherops' })
-  if (pathname === '/api/auth/request-code' && request.method === 'POST') return requestCode(request, env)
-  if (pathname === '/api/auth/verify-code' && request.method === 'POST') return verifyCode(request, env)
+  if (pathname === '/api/auth/telegram' && request.method === 'POST') return telegramAuth(request, env)
   if (pathname === '/api/auth/logout' && request.method === 'POST') return logout(request, env)
   if (pathname === '/api/auth/me' && request.method === 'GET') return currentUser(request, env)
   if (pathname === '/api/telegram/webhook' && request.method === 'POST') return telegramWebhook(request, env)

@@ -13,12 +13,11 @@
 3. Reconfigure the webhook with the new token and a fresh webhook secret.
 4. Review recent Worker invocations and unlink any affected Telegram account.
 
-## If account sessions or email codes are suspected compromised
+## If account sessions or Telegram sign-in data are suspected compromised
 
-1. Delete the user's rows from `sessions` and `otp_challenges` in D1.
-2. Remove the address from `VERIFIED_LOGIN_EMAILS` while investigating.
-3. Rotate `AUTH_PEPPER` if its value may have been exposed; this invalidates outstanding one-time codes.
-4. Check for unexpected chat exports, token creation, and deletion activity.
+1. Delete the user's rows from `sessions` in D1.
+2. Disable the Telegram bot token in BotFather and remove the matching Cloudflare Worker secret while investigating.
+3. Check for unexpected chat exports, token creation, and deletion activity.
 
 ## After containment
 

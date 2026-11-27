@@ -6,9 +6,6 @@ Keep local secrets in `worker/.dev.vars` (ignored by Git) and production secrets
 
 | Secret | Purpose |
 | --- | --- |
-| `AUTH_PEPPER` | HMAC key for OTP and Telegram link-code digests |
-| `VERIFIED_LOGIN_EMAILS` | Comma-separated addresses verified in Cloudflare Email Service on the free plan |
-| `MAIL_FROM` | Onboarded sender address used by Email Service |
 | `TELEGRAM_BOT_TOKEN` | Bot API credential from BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | Random value checked against Telegram's secret-token header |
 
@@ -16,19 +13,18 @@ Generate random secrets locally with a cryptographically secure generator. Use d
 
 ## First deployment
 
-1. Create a Cloudflare account, enable Workers AI, and onboard a sending domain with Email Service. Add each intended test inbox as a verified destination.
+1. Create a Cloudflare account and enable Workers AI.
 2. Create the D1 database: `npx wrangler d1 create aetherops`.
 3. Copy the generated database ID into `worker/wrangler.toml` in place of the `REPLACE_...` marker.
 4. Apply the schema: `npm run db:remote`.
 5. Add the secrets above through `wrangler secret put`.
 6. Deploy with `npm run deploy`.
-7. Create a Telegram bot with BotFather, store its token as a Worker secret, then configure its webhook as described in [the bot guide](../docs/telegram-bot.md).
+7. Create a Telegram bot with BotFather, add it as a channel administrator, store its token as a Worker secret, then configure its webhook as described in [the bot guide](../docs/telegram-bot.md).
 
-Workers AI has a daily free neuron allocation; when it is exhausted, inference fails until the reset. The app also applies its own shared daily text-token ceiling as a guardrail. Cloudflare Email Service on the Workers Free plan is limited to verified destination addresses. D1 free storage is limited, so apply retention and backup practices before accepting public sign-ups.
+Workers AI has a daily free neuron allocation; when it is exhausted, inference fails until the reset. The app also applies its own shared daily text-token ceiling as a guardrail. D1 free storage is limited, so apply retention and backup practices before accepting public sign-ups.
 
 ## Rotation
 
 - **Telegram bot token:** rotate through BotFather, immediately update the Cloudflare secret, and set the webhook again.
 - **Webhook secret:** generate a new value, update Cloudflare and Telegram webhook configuration together.
-- **AUTH_PEPPER:** rotating invalidates pending OTP and link codes; do it during a maintenance window. Existing sessions and API keys remain valid.
 - **Leaked API token:** revoke its row in the dashboard immediately. Since only the hash is stored, the original secret cannot be recovered.

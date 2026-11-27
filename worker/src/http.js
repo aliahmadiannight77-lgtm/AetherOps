@@ -50,7 +50,7 @@ export function sessionCookie(request, value, maxAge) {
 export function responseSecurityHeaders(response) {
   const headers = new Headers(response.headers)
   for (const [key, value] of Object.entries(securityHeaders)) headers.set(key, value)
-  headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+  headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
   headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }

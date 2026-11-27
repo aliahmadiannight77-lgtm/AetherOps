@@ -10,6 +10,11 @@ export async function api(path, { body, ...options } = {}) {
   const isJson = (response.headers.get('content-type') || '').includes('application/json')
   const result = isJson ? await response.json().catch(() => ({})) : {}
   if (!isJson) throw new Error('Worker API در دسترس نیست؛ برای اجرای کامل از npm run dev:edge استفاده کن.')
-  if (!response.ok) throw new Error(result?.error?.message || 'ارتباط با سرویس انجام نشد.')
+  if (!response.ok) {
+    const failure = new Error(result?.error?.message || 'ارتباط با سرویس انجام نشد.')
+    failure.code = result?.error?.code || 'request_failed'
+    failure.status = response.status
+    throw failure
+  }
   return result
 }

@@ -12,9 +12,6 @@ database_name = "aetherops-db"
 database_id = "9891ba65-4d94-4bdd-a5c4-7ad093c41104"
 migrations_dir = "migrations"
 
-[[send_email]]
-name = "EMAIL"
-
 [assets]
 directory = "../dist"
 binding = "ASSETS"
@@ -22,6 +19,7 @@ run_worker_first = ["/api/*"]
 
 [vars]
 TELEGRAM_DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+AETHEROPS_WEB_URL = "https://aetherops.codebox-lab.workers.dev"
 
 [observability]
 enabled = true

@@ -1,6 +1,7 @@
 import { randomId, randomToken, sha256 } from './crypto.js'
 import { authenticate } from './auth.js'
 import { error, json, readJson, requireSameOrigin } from './http.js'
+import { channelStatus } from './channel.js'
 
 export async function listChats(env, user) {
   const result = await env.DB.prepare('SELECT id, title, channel, created_at AS createdAt, updated_at AS updatedAt FROM chats WHERE user_id = ? ORDER BY updated_at DESC LIMIT 100').bind(user.id).all()
@@ -64,11 +65,11 @@ export async function linkCode(request, env, user) {
   const now = Date.now()
   await env.DB.prepare('DELETE FROM telegram_link_codes WHERE user_id = ? OR expires_at < ?').bind(user.id, now).run()
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const code = randomToken(6).replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase()
+    const code = randomToken(9).toUpperCase()
     const codeHash = await sha256(code)
     try {
       await env.DB.prepare('INSERT INTO telegram_link_codes(code_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)').bind(codeHash, user.id, now + 10 * 60 * 1000, now).run()
-      return json({ code, expiresInSeconds: 600, instructions: `/link ${code}` }, 201)
+      return json({ code, expiresInSeconds: 600, instructions: `/start ${code}`, botUrl: `https://t.me/AetherOpsChatBot?start=${code}` }, 201)
     } catch {
       // A collision is very unlikely; retry with fresh random bytes.
     }
@@ -90,6 +91,7 @@ export async function accountRoutes(request, env, path) {
   if (path === '/api/chats' && request.method === 'POST') return createChat(request, env, user)
   if (path === '/api/tokens' && request.method === 'GET') return listTokens(env, user)
   if (path === '/api/tokens' && request.method === 'POST') return createToken(request, env, user)
+  if (path === '/api/channel/status' && request.method === 'GET') return json(await channelStatus(env, user.id))
   if (path === '/api/telegram/link-code' && request.method === 'POST') return linkCode(request, env, user)
   if (path === '/api/telegram/link' && request.method === 'DELETE') return unlinkTelegram(request, env, user)
 

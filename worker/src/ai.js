@@ -1,5 +1,6 @@
 import { randomId } from './crypto.js'
 import { error, json, readJson, requireSameOrigin } from './http.js'
+import { requireChannelMembership } from './channel.js'
 
 export const MODELS = new Set([
   '@cf/google/gemma-4-26b-a4b-it',
@@ -92,6 +93,7 @@ export async function generateReply(env, { userId, chatId, message, model, chann
 
 export async function chat(request, env, user) {
   requireSameOrigin(request)
+  await requireChannelMembership(env, user.id)
   const body = await readJson(request, 12_000)
   try {
     const result = await generateReply(env, { userId: user.id, chatId: body.chatId || null, message: body.message, model: body.model || '@cf/google/gemma-4-26b-a4b-it' })
