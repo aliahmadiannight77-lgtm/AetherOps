@@ -2,10 +2,14 @@ import { randomId } from './crypto.js'
 import { error, json, readJson, requireSameOrigin } from './http.js'
 import { requireChannelMembership } from './channel.js'
 
-export const MODELS = new Set([
-  '@cf/google/gemma-4-26b-a4b-it',
-  '@cf/qwen/qwen3.8-27b',
-])
+export const MODEL_LIST = [
+  { id: '@cf/google/gemma-4-26b-a4b-it', label: 'Gemma 4 · Balanced' },
+  { id: '@cf/qwen/qwen3.8-27b', label: 'Qwen 3.8 · Reasoning' },
+  { id: '@cf/zai-org/glm-4.7-flash', label: 'GLM 4.7 Flash · Fast' },
+  { id: '@cf/openai/gpt-oss-20b', label: 'GPT-OSS 20B · Reasoning' },
+  { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout · Long context' },
+]
+export const MODELS = new Set(MODEL_LIST.map(({ id }) => id))
 const DAILY_TOKEN_LIMIT = 20_000
 const MAX_MESSAGE_LENGTH = 8_000
 

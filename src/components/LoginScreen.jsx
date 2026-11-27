@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
-import { ArrowUpLeft, Check, Globe2, LockKeyhole, Moon, Send, ShieldCheck, Sparkles, Sun } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowUpLeft, Check, ChevronRight, LockKeyhole, Moon, Send, ShieldCheck, Sparkles, Sun } from 'lucide-react'
 import { api } from '@/lib/api'
-import { languages, rtlLanguages, translate as t } from '@/lib/i18n.js'
+import { rtlLanguages, translate as t } from '@/lib/i18n.js'
+import { getLoginCopy } from '@/lib/login-copy.js'
+import LanguagePicker from './LanguagePicker.jsx'
 import './login.css'
 
-const botUrl = 'https://t.me/AetherOpsChatBot'
 const channelUrl = 'https://t.me/PythonCodingAcademy'
 
 export default function LoginScreen({
@@ -19,10 +20,14 @@ export default function LoginScreen({
   const [miniApp, setMiniApp] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [challenge, setChallenge] = useState(null)
+  const [code, setCode] = useState('')
+  const authInFlight = useRef(false)
   const missingInitData = miniApp && !initData
 
   async function authenticateWithTelegram(rawInitData = initData) {
-    if (!rawInitData || busy) return
+    if (!rawInitData || authInFlight.current) return
+    authInFlight.current = true
     setBusy(true)
     setMessage('')
     try {
@@ -31,6 +36,37 @@ export default function LoginScreen({
     } catch (cause) {
       setMessage(cause.message)
     } finally {
+      authInFlight.current = false
+      setBusy(false)
+    }
+  }
+
+  async function startCodeLogin() {
+    if (busy) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await api('/api/auth/telegram/start', { method: 'POST', body: {} })
+      setChallenge(result)
+      setCode('')
+    } catch (cause) {
+      setMessage(cause.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verifyLoginCode(event) {
+    event.preventDefault()
+    if (!challenge?.state || !/^\d{8}$/.test(code) || busy) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await api('/api/auth/telegram/verify', { method: 'POST', body: { state: challenge.state, code } })
+      onAuthenticated(result.user)
+    } catch (cause) {
+      setMessage(cause.code === 'telegram_login_invalid' ? getLoginCopy(language, 'invalidCode') : cause.code === 'telegram_login_expired' ? getLoginCopy(language, 'expired') : cause.message)
+    } finally {
       setBusy(false)
     }
   }
@@ -38,8 +74,8 @@ export default function LoginScreen({
   useEffect(() => {
     const webApp = window.Telegram?.WebApp
     if (!webApp) return
-    webApp.ready()
-    webApp.expand()
+    webApp.ready?.()
+    webApp.expand?.()
     setMiniApp(true)
     setInitData(webApp.initData || '')
   }, [])
@@ -55,12 +91,7 @@ export default function LoginScreen({
     <div className="login-ambient ambient-b" />
     <div className="login-ambient ambient-c" />
     <div className="login-top-controls">
-      <label className="login-language-wrap">
-        <Globe2 size={15} />
-        <select className="login-language-select" aria-label={tr('language')} value={language} onChange={(event) => onLanguageChange(event.target.value)}>
-          {languages.map(([code, name]) => <option value={code} key={code}>{name}</option>)}
-        </select>
-      </label>
+      <LanguagePicker value={language} onChange={onLanguageChange} label={tr('language')} />
       <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Light theme' : 'Dark theme'}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         <span>{theme === 'dark' ? 'LIGHT' : 'DARK'}</span>
@@ -102,34 +133,46 @@ export default function LoginScreen({
         <h2 id="login-title">{tr('login')}</h2>
         <p className="login-description">
           {miniApp
-            ? (busy ? 'در حال تأیید امن حساب تلگرام…' : 'نشست تلگرام شما به‌صورت امن بررسی می‌شود.')
-            : 'برای ورود امن و ساخت فضای کار شخصی، از ربات AetherOps ادامه بده.'}
+            ? (busy ? 'Checking your Telegram sign-in securely…' : 'Continue with your signed Telegram session or request a browser code.')
+            : 'Start in the AetherOps bot, then enter its one-time code here to open your workspace.'}
         </p>
 
-        {miniApp ? <div className={`miniapp-status ${message || missingInitData ? 'is-error' : busy ? 'is-pending' : 'is-ready'}`}>
+        {miniApp && <div className={`miniapp-status ${message || missingInitData ? 'is-error' : busy ? 'is-pending' : 'is-ready'}`}>
           <span className="miniapp-status-icon">{message || missingInitData ? <ShieldCheck size={17} /> : busy ? <span className="mini-spinner" /> : <Check size={17} />}</span>
           <div>
-            <b>{message || missingInitData ? 'ورود از Mini App لازم است' : busy ? 'در حال اتصال' : 'در حال تأیید امن'}</b>
-            <small>{message || (missingInitData ? 'این نشانی را از دکمهٔ «بازکردن Mini App» در ربات AetherOps باز کن.' : 'هویت از دادهٔ امضاشدهٔ Telegram بررسی می‌شود.')}</small>
+            <b>{message || missingInitData ? 'Open from the AetherOps bot' : busy ? 'Verifying your account' : 'Secure Telegram session'}</b>
+            <small>{message || (missingInitData ? getLoginCopy(language, 'miniAppHint') : 'Telegram’s signed Mini App data is checked by the Cloudflare Worker.')}</small>
           </div>
-        </div> : <>
-          <a className="login-submit" href={botUrl} target="_blank" rel="noreferrer">
+        </div>}
+
+        {(missingInitData || !miniApp) && !challenge && <>
+          <button className="login-submit" type="button" disabled={busy} onClick={startCodeLogin}>
             <Send size={16} />
-            <span>{tr('telegramBot')}</span>
+            <span>{busy ? 'Preparing secure sign-in…' : getLoginCopy(language, 'start')}</span>
             <ArrowUpLeft size={16} className="login-submit-arrow" />
-          </a>
+          </button>
           <div className="login-join-note">
             <span className="join-note-icon"><LockKeyhole size={14} /></span>
-            <span>ربات ابتدا عضویت در کانال را بررسی می‌کند؛ بعد لینک ورود و Mini App را می‌دهد.</span>
+            <span>{getLoginCopy(language, 'codeHint')}</span>
           </div>
         </>}
 
+        {challenge && <div className="login-code-flow">
+          <div className="login-step-heading"><span>01</span><div><b>{getLoginCopy(language, 'openBot')}</b><small>PythonCodingAcademy · 10 min</small></div><ChevronRight size={16}/></div>
+          <a className="bot-open-link" href={challenge.botUrl} target="_blank" rel="noreferrer"><Send size={15}/>{getLoginCopy(language, 'openBot')}<ArrowUpLeft size={14}/></a>
+          <form className="login-code-form" onSubmit={verifyLoginCode}>
+            <label htmlFor="telegram-login-code">{getLoginCopy(language, 'codeLabel')}</label>
+            <div className="login-code-input-row"><input id="telegram-login-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" pattern="\d{8}" maxLength="8" placeholder="00000000" aria-describedby="telegram-code-hint" required/><span>{code.length}/8</span></div>
+            <small id="telegram-code-hint">{getLoginCopy(language, 'codeHint')}</small>
+            <button className="login-code-submit" type="submit" disabled={busy || code.length !== 8}><ShieldCheck size={15}/>{busy ? 'Verifying…' : getLoginCopy(language, 'submit')}</button>
+            <button className="login-code-refresh" type="button" disabled={busy} onClick={startCodeLogin}>Get a fresh link</button>
+          </form>
+        </div>}
+
         {message && <div className="login-error" role="alert">{message}</div>}
-        {miniApp && (message || missingInitData) && <a className="login-retry" href={botUrl} target="_blank" rel="noreferrer">
-          <Send size={15} /> بازکردن ربات AetherOps
-        </a>}
+        {miniApp && missingInitData && <a className="login-retry" href="https://t.me/AetherOpsChatBot" target="_blank" rel="noreferrer"><Send size={15} />{getLoginCopy(language, 'openBot')}</a>}
         {miniApp && message && initData && <button className="secondary-button login-retry" type="button" disabled={busy || !initData} onClick={() => authenticateWithTelegram()}>
-          <Check size={15} /> بررسی دوباره
+          <Check size={15} /> Try again
         </button>}
 
         <div className="login-channel-row">

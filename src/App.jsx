@@ -3,14 +3,18 @@ import { Activity, ArrowDown, ArrowUpLeft, Bot, Check, ChevronDown, CircleHelp, 
 import TokenDataTable from './components/TokenDataTable.jsx'
 import { Spotlight } from './components/ui/spotlight.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
+import LanguagePicker from './components/LanguagePicker.jsx'
 import './components/security-ui.css'
 import './components/future-ui.css'
 import { api } from './lib/api.js'
-import { languages, localeFor, rtlLanguages, translate as t } from './lib/i18n.js'
+import { localeFor, rtlLanguages, translate as t } from './lib/i18n.js'
 
 const models = [
-  { name: '@cf/google/gemma-4-26b-a4b-it', label: 'Gemma 4 · متعادل', detail: 'چندزبانه و چندرسانه‌ای' },
-  { name: '@cf/qwen/qwen3.8-27b', label: 'Qwen 3.8 · پیشرفته', detail: 'استدلال و کدنویسی' },
+  { name: '@cf/google/gemma-4-26b-a4b-it', label: 'Gemma 4 · Balanced', detail: 'Multilingual · general purpose' },
+  { name: '@cf/qwen/qwen3.8-27b', label: 'Qwen 3.8 · Reasoning', detail: 'Reasoning · coding' },
+  { name: '@cf/zai-org/glm-4.7-flash', label: 'GLM 4.7 Flash · Fast', detail: 'Fast · multilingual · tools' },
+  { name: '@cf/openai/gpt-oss-20b', label: 'GPT-OSS 20B · Reasoning', detail: 'Reasoning · longer context' },
+  { name: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout · Long context', detail: 'Long context · text and vision' },
 ]
 
 function App() {
@@ -228,7 +232,7 @@ function App() {
     <main className="main-area">
       <header className="topbar">
         <div className="topbar-title"><button className="icon-button menu-button" onClick={() => setMobileNav(true)} aria-label={tr('workspace')}><Menu size={19}/></button><span className="breadcrumb">{tr('workspace')} <span>/</span> {view === 'chat' ? tr('smartChat') : view === 'tokens' ? tr('apiTokens') : tr('overview')}</span></div>
-        <div className="topbar-actions"><div className="status-pill"><i/> {tr('edgeActive')}</div><button className="icon-button theme-toggle-app" type="button" onClick={() => changeTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Light theme' : 'Dark theme'}>{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}</button><select className="language-select" aria-label={tr('language')} value={language} onChange={(event) => changeLanguage(event.target.value)}>{languages.map(([code,name]) => <option value={code} key={code}>{name}</option>)}</select><button className="icon-button help-button" aria-label={tr('language')} onClick={() => notify(tr('helpSoon'))}><CircleHelp size={18}/></button><button className="avatar small-avatar" onClick={() => setView('overview')}>{accountLabel.slice(0, 1).toUpperCase()}</button></div>
+        <div className="topbar-actions"><div className="status-pill"><i/> {tr('edgeActive')}</div><button className="icon-button theme-toggle-app" type="button" onClick={() => changeTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Light theme' : 'Dark theme'}>{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}</button><LanguagePicker value={language} onChange={changeLanguage} label={tr('language')}/><button className="icon-button help-button" aria-label={tr('language')} onClick={() => notify(tr('helpSoon'))}><CircleHelp size={18}/></button><button className="avatar small-avatar" onClick={() => setView('overview')}>{accountLabel.slice(0, 1).toUpperCase()}</button></div>
       </header>
 
       {view === 'chat' && !membership?.isMember && <section className="chat-view channel-gate-wrap">
